@@ -40,6 +40,7 @@ NCURSES_FOUND="no"
 LIBCONFIG_FOUND="no"
 LIBCHECK_FOUND="no"
 WANT_NACL="no"
+WANT_I2P="no"
 ADD_NACL_OBJECTS_TO_PKGCONFIG="yes"
 
 TOXCORE_LT_LDFLAGS="-version-info $LIBTOXCORE_LT_VERSION"
@@ -69,6 +70,16 @@ AC_ARG_ENABLE([nacl],
     ]
 )
 
+AC_ARG_ENABLE([i2p],
+    [AC_HELP_STRING([--enable-i2p], [enable i2p support (default: disabled)]) ],
+    [
+        if test "x$enableval" = "xno"; then
+            WANT_I2P="no"
+        elif test "x$enableval" = "xyes"; then
+            WANT_I2P="yes"
+        fi
+    ]
+)
 AC_ARG_ENABLE([randombytes-stir],
     [AC_HELP_STRING([--enable-randombytes-stir], [use randombytes_stir() instead of sodium_init() for faster startup on android (default: disabled)]) ],
     [
@@ -87,7 +98,7 @@ AC_ARG_ENABLE([log],
     [
         if test "x$enableval" = "xyes"; then
             LOGGING="yes"
-            
+
             AC_DEFINE([LOGGING], [], [If logging enabled])
             AC_DEFINE([LOGGER_LEVEL], [LOG_DEBUG], [LOG_LEVEL value])
             AC_DEFINE_UNQUOTED([LOGGER_OUTPUT_FILE], ["$LOGGING_OUTNAM"], [Output of logger])
@@ -104,16 +115,16 @@ AC_ARG_WITH(log-level,
         else
             if test "x$withval" = "xTRACE"; then
                 AC_DEFINE([LOGGER_LEVEL], [LOG_TRACE], [LOG_LEVEL value])
-            
+
             elif test "x$withval" = "xDEBUG"; then
                 AC_DEFINE([LOGGER_LEVEL], [LOG_DEBUG], [LOG_LEVEL value])
-            
+
             elif test "x$withval" = "xINFO"; then
                 AC_DEFINE([LOGGER_LEVEL], [LOG_INFO], [LOG_LEVEL value])
-            
+
             elif test "x$withval" = "xWARNING"; then
                 AC_DEFINE([LOGGER_LEVEL], [LOG_WARNING], [LOG_LEVEL value])
-                
+
             elif test "x$withval" = "xERROR"; then
                 AC_DEFINE([LOGGER_LEVEL], [LOG_ERROR], [LOG_LEVEL value])
             else
@@ -147,6 +158,8 @@ AC_ARG_ENABLE([av],
         fi
     ]
 )
+
+
 
 AC_ARG_ENABLE([tests],
     [AC_HELP_STRING([--disable-tests], [build unit tests (default: auto)]) ],
@@ -225,6 +238,8 @@ fi
 DEPSEARCH=
 LIBSODIUM_SEARCH_HEADERS=
 LIBSODIUM_SEARCH_LIBS=
+LIBSAM3_SEARCH_HEADERS=
+LIBSAM3_SEARCH_LIBS=
 NACL_SEARCH_HEADERS=
 NACL_SEARCH_LIBS=
 
@@ -277,6 +292,23 @@ AC_ARG_WITH(libsodium-libs,
         [
             LIBSODIUM_SEARCH_LIBS="$withval"
             AC_MSG_NOTICE([will search for libsodium libraries in $withval])
+        ]
+)
+AC_ARG_WITH(libsam3-headers,
+        AC_HELP_STRING([--with-libsam3-headers=DIR],
+                       [search for libsam3 header files in DIR]),
+        [
+            LIBSAM3_SEARCH_HEADERS="$withval"
+            AC_MSG_NOTICE([will search for libsam3 header files in $withval])
+        ]
+)
+
+AC_ARG_WITH(libsam3-libs,
+        AC_HELP_STRING([--with-libsam3-libs=DIR],
+                       [search for libsam3 libraries in DIR]),
+        [
+            LIBSAM3_SEARCH_LIBS="$withval"
+            AC_MSG_NOTICE([will search for libsam3 libraries in $withval])
         ]
 )
 
@@ -682,6 +714,48 @@ if test "x$WIN32" = "xyes"; then
         ]
     )
 fi
+
+if test "x$WANT_I2P" = "xyes"; then
+    LIBSAM3_LIBS=
+    LIBSAM3_LDFLAGS=
+    LDFLAGS_SAVE="$LDFLAGS"
+    if test -n "$LIBSAM3_SEARCH_LIBS"; then
+        LDFLAGS="-L$LIBSAM3_SEARCH_LIBS $LDFLAGS"
+    fi
+
+    LDFLAGS="$LDFLAGS_SAVE"
+    AC_SUBST(LIBSAM3_LIBS)
+    AC_SUBST(LIBSAM3_LDFLAGS)
+fi
+
+if test "x$WANT_I2P" = "xyes"; then
+    LIBSAM3_CFLAGS=
+    CFLAGS_SAVE="$CFLAGS"
+    CPPFLAGS_SAVE="$CPPFLAGS"
+    if test -n "$LIBSAM3_SEARCH_HEADERS"; then
+        CFLAGS="-I$LIBSAM3_SEARCH_HEADERS $CFLAGS"
+        CPPFLAGS="-I$LIBSAM3_SEARCH_HEADERS $CPPFLAGS"
+        AC_CHECK_HEADER(libsam3.h,
+            [
+                LIBSSAM3_CFLAGS="-I$LIBSAM3_SEARCH_HEADERS"
+            ],
+            [
+                AC_MSG_ERROR([header files for required library libsam3 were not found in requested location $LIBSAM3_SEARCH_HEADERS])
+            ]
+        )
+    else
+        AC_CHECK_HEADER(libsam3.h,
+            [],
+            [
+                AC_MSG_ERROR([header files for required library libsam3 was not found on your system, please check http://git.repo.i2p/w/libsam3.git])
+            ]
+        )
+    fi
+    CFLAGS="$CFLAGS_SAVE"
+    CPPFLAGS="$CPPFLAGS_SAVE"
+    AC_SUBST(LIBSAM3_CFLAGS)
+fi
+
 
 AM_CONDITIONAL(BUILD_DHT_BOOTSTRAP_DAEMON, test "x$BUILD_DHT_BOOTSTRAP_DAEMON" = "xyes")
 AM_CONDITIONAL(BUILD_TESTS, test "x$BUILD_TESTS" = "xyes")
